@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # TrustX Code Package
 
 This is a student-friendly prototype of a simplified decentralized collateralized lending DApp.
@@ -42,3 +43,6 @@ npm run dev
 - `MockOracle` is manually controlled by the deployer/admin and is used for price crash simulation.
 - The liquidation logic is intentionally simplified for undergraduate implementation.
 - You may still need to adjust package versions or small UI details in your local environment.
+=======
+# TrustX
+>>>>>>> 2ed64f8deeb1fb48b8345332038ff10a3e07a18c
