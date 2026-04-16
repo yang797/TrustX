@@ -1,0 +1,8 @@
+{
+  "network": "localhost",
+  "token": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+  "oracle": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9",
+  "trustX": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+  "deployedAt": "2026-04-16T13:04:54.547Z",
+  "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266"
+}
