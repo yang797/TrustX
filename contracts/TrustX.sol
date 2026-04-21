@@ -15,12 +15,6 @@ interface IMockToken is IERC20 {
     function transfer(address to, uint256 value) external returns (bool);
 }
 
-event Deposited(address indexed user, uint256 amount);
-event Borrowed(address indexed user, uint256 amount);
-event Repaid(address indexed user, uint256 amount);
-event Withdrawn(address indexed user, uint256 amount);
-event Liquidated(address indexed liquidator, address indexed borrower, uint256 repayAmount, uint256 collateralSeized);
-
 contract TrustX is ReentrancyGuard {
     // IERC20 public immutable token;
     IMockToken public immutable token;
@@ -35,6 +29,18 @@ contract TrustX is ReentrancyGuard {
 
     mapping(address => uint256) public collateralBalance; // ETH, 18 decimals
     mapping(address => uint256) public borrowBalance; // Token, 18 decimals
+
+    uint256 public previousPrice;
+    uint256 public consecutiveDrops;
+
+    uint256 public constant VF_LOW = 1e18;      // 1.00
+    uint256 public constant VF_MEDIUM = 9e17;   // 0.90
+    uint256 public constant VF_HIGH = 8e17;     // 0.80
+
+    uint256 public constant TF_NONE = 1e18;     // 1.00
+    uint256 public constant TF_ONE = 95e16;     // 0.95
+    uint256 public constant TF_TWO = 9e17;      // 0.90
+    uint256 public constant TF_THREE_PLUS = 85e16; // 0.85
 
     event Deposited(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
@@ -54,6 +60,71 @@ contract TrustX is ReentrancyGuard {
         token = IMockToken(tokenAddress);
         oracle = IPriceOracle(oracleAddress);
         LIQUIDATION_THRESHOLD = Threshold;
+
+        previousPrice = oracle.getPrice();  // memory the previous price for volatility tracking
+    }
+
+    function syncMarketState() public {
+        uint256 currentPrice = oracle.getPrice();
+
+        if (currentPrice < previousPrice) {
+            consecutiveDrops += 1;
+        } else {
+            consecutiveDrops = 0;
+        }
+
+        previousPrice = currentPrice;
+    }
+
+    function getVolatilityFactor() public view returns (uint256) {
+        uint256 currentPrice = oracle.getPrice();
+
+        if (previousPrice == 0) {
+            return VF_LOW;
+        }
+
+        uint256 diff = currentPrice > previousPrice
+            ? currentPrice - previousPrice
+            : previousPrice - currentPrice;
+
+        uint256 changeRatio = (diff * PRECISION) / previousPrice;
+
+        if (changeRatio <= 5e16) {
+            return VF_LOW; // <= 5%
+        } else if (changeRatio <= 15e16) {
+            return VF_MEDIUM; // <= 15%
+        } else {
+            return VF_HIGH; // > 15%
+        }
+    }
+
+    function getTrendFactor() public view returns (uint256) {
+        if (consecutiveDrops == 0) {
+            return TF_NONE; // 1.00
+        } else if (consecutiveDrops == 1) {
+            return TF_ONE; // 0.95
+        } else if (consecutiveDrops == 2) {
+            return TF_TWO; // 0.90
+        } else {
+            return TF_THREE_PLUS; // 0.85
+        }
+    }
+
+    function getAdjustedHealthFactor(address user) public view returns (uint256) {
+        uint256 debt = borrowBalance[user];
+        if (debt == 0) {
+            return SAFE_NO_DEBT_HF;
+        }
+
+        uint256 baseHF = getHealthFactor(user);
+        uint256 vf = getVolatilityFactor();
+        uint256 tf = getTrendFactor();
+
+        return (((baseHF * vf) / PRECISION) * tf) / PRECISION;
+    }
+
+    function isLiquidatableAdjusted(address user) public view returns (bool) {
+        return getAdjustedHealthFactor(user) < LIQUIDATION_THRESHOLD;
     }
 
     function deposit() external payable {
@@ -156,7 +227,7 @@ contract TrustX is ReentrancyGuard {
     //}
 
     function isLiquidatable(address user) public view returns (bool) {
-        return getHealthFactor(user) < LIQUIDATION_THRESHOLD;
+        return getAdjustedHealthFactor(user) < LIQUIDATION_THRESHOLD;
     }
 
     function _isHealthy(address user) internal view returns (bool) {
@@ -164,7 +235,7 @@ contract TrustX is ReentrancyGuard {
         if (debt == 0) {
             return true;
         }
-        return getHealthFactor(user) >= LIQUIDATION_THRESHOLD;
+        return getAdjustedHealthFactor(user) >= LIQUIDATION_THRESHOLD;
     }
 
     function _tokenAmountToEthWithBonus(uint256 tokenAmount) internal view returns (uint256) {

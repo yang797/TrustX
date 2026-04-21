@@ -26,7 +26,9 @@ function App() {
     healthFactor: '0',
     liquidatable: false,
     price: '0',
-    tokenBalance: '0'
+    tokenBalance: '0',
+    volatilityFactor: '1.00',
+    trendFactor: '1.00'
   });
 
   const trustXAddress = deployment.trustX;
@@ -58,13 +60,15 @@ function App() {
       console.log("oracle code:", await readProvider.getCode(oracleAddress));
       //test
 
-      const [collateral, debt, healthFactor, liquidatable, price, tokenBalance] = await Promise.all([
+      const [collateral, debt, healthFactor, liquidatable, price, tokenBalance, volatilityFactor, trendFactor] = await Promise.all([
         trustX.collateralBalance(account),
         trustX.borrowBalance(account),
-        trustX.getHealthFactor(account),
+        trustX.getAdjustedHealthFactor(account),
         trustX.isLiquidatable(account),
         oracle.getPrice(),
-        token.balanceOf(account)
+        token.balanceOf(account),
+        trustX.getVolatilityFactor(),
+        trustX.getTrendFactor()
       ]);
 
       setData({
@@ -74,7 +78,9 @@ function App() {
           healthFactor > ethers.MaxUint256 / 2n ? '∞' : Number(ethers.formatEther(healthFactor)).toFixed(3),
         liquidatable,
         price: ethers.formatEther(price),
-        tokenBalance: ethers.formatEther(tokenBalance)
+        tokenBalance: ethers.formatEther(tokenBalance),
+        volatilityFactor: Number(ethers.formatEther(volatilityFactor)).toFixed(2),
+        trendFactor: Number(ethers.formatEther(trendFactor)).toFixed(2)
       });
     };
 
@@ -174,10 +180,13 @@ function App() {
   };
 
   const handleSetPrice = async () => {
-    const { oracle } = getContracts();
+    const { oracle, trustX } = getContracts();
     await runTx(async () => {
       const tx = await oracle.setPrice(ethers.parseEther(adminPrice));
       await tx.wait();
+
+      const syncTx = await trustX.syncMarketState();
+      await syncTx.wait();
     });
   };
 
@@ -220,6 +229,8 @@ function App() {
             <p><strong>Token Debt:</strong> {data.debt}</p>
             <p><strong>Token Balance:</strong> {data.tokenBalance}</p>
             <p><strong>ETH Price:</strong> ${data.price}</p>
+            <p><strong>Volatility Factor:</strong> {data.volatilityFactor}</p>
+            <p><strong>Trend Factor:</strong> {data.trendFactor}</p>
             <p className={data.liquidatable ? "danger" : "safe"}>
               <strong>Liquidatable:</strong> {String(data.liquidatable)}
             </p>

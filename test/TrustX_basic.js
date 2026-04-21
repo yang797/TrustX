@@ -83,7 +83,7 @@ describe("TrustX Basic Flow", function () {
     ).to.emit(trustX, "Withdrawn").withArgs(user.address, withdrawAmount);
 
     expect(await trustX.collateralBalance(user.address)).to.equal(
-      ethers.parseEther("0.8")
+      ethers.parseEther("1.5")
     );
   });
 

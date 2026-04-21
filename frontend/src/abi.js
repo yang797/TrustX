@@ -4,10 +4,20 @@ export const TRUSTX_ABI = [
   "function borrow(uint256 amount)",
   "function repay(uint256 amount)",
   "function liquidate(address borrower, uint256 repayAmount)",
+
   "function collateralBalance(address user) view returns (uint256)",
   "function borrowBalance(address user) view returns (uint256)",
+
   "function getHealthFactor(address user) view returns (uint256)",
+  "function getAdjustedHealthFactor(address user) view returns (uint256)",
   "function isLiquidatable(address user) view returns (bool)",
+
+  "function getVolatilityFactor() view returns (uint256)",
+  "function getTrendFactor() view returns (uint256)",
+  "function previousPrice() view returns (uint256)",
+  "function consecutiveDrops() view returns (uint256)",
+  "function syncMarketState()",
+
   "function oracle() view returns (address)",
   "function token() view returns (address)"
 ];
